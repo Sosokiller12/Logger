@@ -99,4 +99,3 @@ def handler(request, response):
         })
         response.status_code = 500
         response.write("Internal Server Error")
-
